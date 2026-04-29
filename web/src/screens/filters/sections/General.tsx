@@ -138,6 +138,17 @@ export const General = () => {
               </div>
             }
           />
+          <NumberField
+            name="min_download_interval"
+            label={t("filters:general.minDownloadInterval")}
+            placeholder={t("filters:general.minDownloadIntervalPlaceholder")}
+            tooltip={
+              <div>
+                <p>{t("filters:general.minDownloadIntervalTooltip")}</p>
+                <DocsLink href="https://autobrr.com/filters#rules" />
+              </div>
+            }
+          />
           <Select
             name={`release_profile_duplicate_id`}
             label={t("filters:general.skipDuplicatesProfile")}

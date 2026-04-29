@@ -820,6 +820,8 @@ func TestFilterRepo_GetFilterDownloads(t *testing.T) {
 			err = repo.GetFilterDownloadCount(t.Context(), mockData)
 			assert.NoError(t, err)
 			assert.NotNil(t, mockData.Downloads)
+			assert.NotZero(t, mockData.Downloads.LastDownloadAt)
+			mockData.Downloads.LastDownloadAt = 0
 			assert.Equal(t, mockData.Downloads, &domain.FilterDownloads{
 				HourCount:  1,
 				DayCount:   1,
@@ -901,6 +903,8 @@ func TestFilterRepo_GetFilterDownloads(t *testing.T) {
 			err = repo.GetFilterDownloadCount(t.Context(), mockFilter)
 			assert.NoError(t, err)
 			assert.NotNil(t, mockFilter.Downloads)
+			assert.NotZero(t, mockFilter.Downloads.LastDownloadAt)
+			mockFilter.Downloads.LastDownloadAt = 0
 			assert.Equal(t, mockFilter.Downloads, &domain.FilterDownloads{
 				HourCount:  1,
 				DayCount:   1,
@@ -972,6 +976,8 @@ func TestFilterRepo_GetFilterDownloads(t *testing.T) {
 			err = repo.GetFilterDownloadCount(t.Context(), mockFilter)
 			assert.NoError(t, err)
 			assert.NotNil(t, mockFilter.Downloads)
+			assert.NotZero(t, mockFilter.Downloads.LastDownloadAt)
+			mockFilter.Downloads.LastDownloadAt = 0
 			assert.Equal(t, mockFilter.Downloads, &domain.FilterDownloads{
 				HourCount:  0,
 				DayCount:   0,

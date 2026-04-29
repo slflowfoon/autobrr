@@ -16,6 +16,7 @@ interface Filter {
   announce_types: string[];
   max_downloads: number;
   max_downloads_unit: string;
+  min_download_interval: number;
   match_releases: string;
   except_releases: string;
   use_regex: boolean;
@@ -166,6 +167,7 @@ interface FilterDownloads {
   month_count: number;
   year_count: number;
   total_count: number;
+  last_download_at?: number;
 }
 
 interface FilterNotification {

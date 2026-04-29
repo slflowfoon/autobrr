@@ -66,7 +66,8 @@ const (
 	COUNT(DISTINCT CASE WHEN CAST(strftime('%s', datetime(timestamp, 'localtime')) AS INTEGER) >= CAST(strftime('%s', datetime('now', 'localtime', 'start of day')) AS INTEGER) THEN release_id END) as "day_count",
 	COUNT(DISTINCT CASE WHEN CAST(strftime('%s', datetime(timestamp, 'localtime')) AS INTEGER) >= CAST(strftime('%s', datetime('now', 'localtime', 'weekday 0', '-7 days', 'start of day')) AS INTEGER) THEN release_id END) as "week_count",
 	COUNT(DISTINCT CASE WHEN CAST(strftime('%s', datetime(timestamp, 'localtime')) AS INTEGER) >= CAST(strftime('%s', datetime('now', 'localtime', 'start of month')) AS INTEGER) THEN release_id END) as "month_count",
-	COUNT(DISTINCT release_id) as "total_count"
+	COUNT(DISTINCT release_id) as "total_count",
+	COALESCE(CAST(strftime('%s', MAX(timestamp)) AS INTEGER), 0) as "last_download_at"
 FROM release_action_status
 WHERE status IN ('PUSH_APPROVED', 'PENDING') AND filter_id = ?;`
 
@@ -75,7 +76,8 @@ WHERE status IN ('PUSH_APPROVED', 'PENDING') AND filter_id = ?;`
     COUNT(DISTINCT CASE WHEN timestamp >= date_trunc('day', CURRENT_DATE) THEN release_id END) as "day_count",
     COUNT(DISTINCT CASE WHEN timestamp >= date_trunc('week', CURRENT_DATE) THEN release_id END) as "week_count",
     COUNT(DISTINCT CASE WHEN timestamp >= date_trunc('month', CURRENT_DATE) THEN release_id END) as "month_count",
-    COUNT(DISTINCT release_id) as "total_count"
+    COUNT(DISTINCT release_id) as "total_count",
+    COALESCE(EXTRACT(EPOCH FROM MAX(timestamp))::BIGINT, 0) as "last_download_at"
 FROM release_action_status
 WHERE status IN ('PUSH_APPROVED', 'PENDING') AND filter_id = $1;`
 )
@@ -108,6 +110,7 @@ func (r *FilterRepo) find(ctx context.Context, params domain.FilterQueryParams) 
 			"f.priority",
 			"f.max_downloads",
 			"f.max_downloads_unit",
+			"f.min_download_interval",
 			"f.created_at",
 			"f.updated_at",
 		).
@@ -155,9 +158,9 @@ func (r *FilterRepo) find(ctx context.Context, params domain.FilterQueryParams) 
 		var f domain.Filter
 
 		var maxDownloadsUnit sql.Null[string]
-		var maxDownloads sql.Null[int32]
+		var maxDownloads, minDownloadInterval sql.Null[int32]
 
-		if err := rows.Scan(&f.ID, &f.Enabled, &f.Name, &f.Priority, &maxDownloads, &maxDownloadsUnit, &f.CreatedAt, &f.UpdatedAt, &f.ActionsCount, &f.ActionsEnabledCount, &f.IsAutoUpdated); err != nil {
+		if err := rows.Scan(&f.ID, &f.Enabled, &f.Name, &f.Priority, &maxDownloads, &maxDownloadsUnit, &minDownloadInterval, &f.CreatedAt, &f.UpdatedAt, &f.ActionsCount, &f.ActionsEnabledCount, &f.IsAutoUpdated); err != nil {
 			return nil, errors.Wrap(err, "error scanning row")
 		}
 
@@ -167,6 +170,9 @@ func (r *FilterRepo) find(ctx context.Context, params domain.FilterQueryParams) 
 
 		if maxDownloadsUnit.Valid {
 			f.MaxDownloadsUnit = domain.FilterMaxDownloadsUnit(maxDownloadsUnit.V)
+		}
+		if minDownloadInterval.Valid {
+			f.MinDownloadInterval = int(minDownloadInterval.V)
 		}
 
 		filters = append(filters, &f)
@@ -241,6 +247,7 @@ func (r *FilterRepo) FindByID(ctx context.Context, filterID int) (*domain.Filter
 			"f.announce_types",
 			"f.max_downloads",
 			"f.max_downloads_unit",
+			"f.min_download_interval",
 			"f.match_releases",
 			"f.except_releases",
 			"f.use_regex",
@@ -324,7 +331,7 @@ func (r *FilterRepo) FindByID(ctx context.Context, filterID int) (*domain.Filter
 	// filter
 	var minSize, maxSize, maxDownloadsUnit, matchReleases, exceptReleases, matchReleaseGroups, exceptReleaseGroups, matchReleaseTags, exceptReleaseTags, matchDescription, exceptDescription, freeleechPercent, shows, seasons, episodes, years, months, days, artists, albums, matchCategories, exceptCategories, matchUploaders, exceptUploaders, matchRecordLabels, exceptRecordLabels, tags, exceptTags, tagsMatchLogic, exceptTagsMatchLogic sql.NullString
 	var useRegex, scene, freeleech, hasLog, hasCue, perfectFlac sql.NullBool
-	var delay, maxDownloads, logScore sql.NullInt32
+	var delay, maxDownloads, minDownloadInterval, logScore sql.NullInt32
 	var releaseProfileDuplicateId sql.NullInt64
 
 	err = row.Scan(
@@ -338,6 +345,7 @@ func (r *FilterRepo) FindByID(ctx context.Context, filterID int) (*domain.Filter
 		pq.Array(&f.AnnounceTypes),
 		&maxDownloads,
 		&maxDownloadsUnit,
+		&minDownloadInterval,
 		&matchReleases,
 		&exceptReleases,
 		&useRegex,
@@ -412,6 +420,7 @@ func (r *FilterRepo) FindByID(ctx context.Context, filterID int) (*domain.Filter
 	f.Delay = int(delay.Int32)
 	f.MaxDownloads = int(maxDownloads.Int32)
 	f.MaxDownloadsUnit = domain.FilterMaxDownloadsUnit(maxDownloadsUnit.String)
+	f.MinDownloadInterval = int(minDownloadInterval.Int32)
 	f.MatchReleases = matchReleases.String
 	f.ExceptReleases = exceptReleases.String
 	f.MatchReleaseGroups = matchReleaseGroups.String
@@ -469,6 +478,7 @@ func (r *FilterRepo) findByIndexerIdentifier(ctx context.Context, indexer string
 			"f.announce_types",
 			"f.max_downloads",
 			"f.max_downloads_unit",
+			"f.min_download_interval",
 			"f.match_releases",
 			"f.except_releases",
 			"f.use_regex",
@@ -581,7 +591,7 @@ func (r *FilterRepo) findByIndexerIdentifier(ctx context.Context, indexer string
 
 		var minSize, maxSize, maxDownloadsUnit, matchReleases, exceptReleases, matchReleaseGroups, exceptReleaseGroups, matchReleaseTags, exceptReleaseTags, matchDescription, exceptDescription, freeleechPercent, shows, seasons, episodes, years, months, days, artists, albums, matchCategories, exceptCategories, matchUploaders, exceptUploaders, matchRecordLabels, exceptRecordLabels, tags, exceptTags, tagsMatchLogic, exceptTagsMatchLogic sql.NullString
 		var useRegex, scene, freeleech, hasLog, hasCue, perfectFlac sql.NullBool
-		var delay, maxDownloads, logScore sql.NullInt32
+		var delay, maxDownloads, minDownloadInterval, logScore sql.NullInt32
 		var releaseProfileDuplicateID, rdpId sql.NullInt64
 
 		var rdpName sql.NullString
@@ -598,6 +608,7 @@ func (r *FilterRepo) findByIndexerIdentifier(ctx context.Context, indexer string
 			pq.Array(&f.AnnounceTypes),
 			&maxDownloads,
 			&maxDownloadsUnit,
+			&minDownloadInterval,
 			&matchReleases,
 			&exceptReleases,
 			&useRegex,
@@ -691,6 +702,7 @@ func (r *FilterRepo) findByIndexerIdentifier(ctx context.Context, indexer string
 		f.Delay = int(delay.Int32)
 		f.MaxDownloads = int(maxDownloads.Int32)
 		f.MaxDownloadsUnit = domain.FilterMaxDownloadsUnit(maxDownloadsUnit.String)
+		f.MinDownloadInterval = int(minDownloadInterval.Int32)
 		f.MatchReleases = matchReleases.String
 		f.ExceptReleases = exceptReleases.String
 		f.MatchReleaseGroups = matchReleaseGroups.String
@@ -867,6 +879,7 @@ func (r *FilterRepo) Store(ctx context.Context, filter *domain.Filter) error {
 			"announce_types",
 			"max_downloads",
 			"max_downloads_unit",
+			"min_download_interval",
 			"match_releases",
 			"except_releases",
 			"use_regex",
@@ -936,6 +949,7 @@ func (r *FilterRepo) Store(ctx context.Context, filter *domain.Filter) error {
 			pq.Array(filter.AnnounceTypes),
 			filter.MaxDownloads,
 			filter.MaxDownloadsUnit,
+			filter.MinDownloadInterval,
 			filter.MatchReleases,
 			filter.ExceptReleases,
 			filter.UseRegex,
@@ -1023,6 +1037,7 @@ func (r *FilterRepo) Update(ctx context.Context, filter *domain.Filter) error {
 		Set("announce_types", pq.Array(filter.AnnounceTypes)).
 		Set("max_downloads", filter.MaxDownloads).
 		Set("max_downloads_unit", filter.MaxDownloadsUnit).
+		Set("min_download_interval", filter.MinDownloadInterval).
 		Set("use_regex", filter.UseRegex).
 		Set("match_releases", filter.MatchReleases).
 		Set("except_releases", filter.ExceptReleases).
@@ -1134,6 +1149,9 @@ func (r *FilterRepo) UpdatePartial(ctx context.Context, filter domain.FilterUpda
 	}
 	if filter.MaxDownloadsUnit != nil {
 		q = q.Set("max_downloads_unit", filter.MaxDownloadsUnit)
+	}
+	if filter.MinDownloadInterval != nil {
+		q = q.Set("min_download_interval", filter.MinDownloadInterval)
 	}
 	if filter.UseRegex != nil {
 		q = q.Set("use_regex", filter.UseRegex)
@@ -1537,7 +1555,7 @@ func (r *FilterRepo) GetFilterDownloadCount(ctx context.Context, filter *domain.
 	}
 
 	var f domain.FilterDownloads
-	if err := row.Scan(&f.HourCount, &f.DayCount, &f.WeekCount, &f.MonthCount, &f.TotalCount); err != nil {
+	if err := row.Scan(&f.HourCount, &f.DayCount, &f.WeekCount, &f.MonthCount, &f.TotalCount, &f.LastDownloadAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.ErrRecordNotFound
 		}

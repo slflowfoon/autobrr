@@ -93,7 +93,7 @@ func (s *service) Find(ctx context.Context, params domain.FilterQueryParams) ([]
 		}
 		filter.Indexers = indexers
 
-		if filter.IsMaxDownloadsLimitEnabled() {
+		if filter.IsMaxDownloadsLimitEnabled() || filter.IsMinDownloadIntervalEnabled() {
 			if err := s.repo.GetFilterDownloadCount(ctx, filter); err != nil {
 				s.log.Error().Err(err).Msgf("could not get filter downloads for filter: %s", filter.Name)
 			}
@@ -404,7 +404,7 @@ func (s *service) CheckFilter(ctx context.Context, f *domain.Filter, release *do
 	l.Trace().Msgf("checking filter: %s for release: %+v", f.Name, release)
 
 	// do additional fetch to get download counts for filter
-	if f.IsMaxDownloadsLimitEnabled() {
+	if f.IsMaxDownloadsLimitEnabled() || f.IsMinDownloadIntervalEnabled() {
 		if err := s.repo.GetFilterDownloadCount(ctx, f); err != nil {
 			l.Error().Err(err).Msg("error getting download counters for filter")
 			return false, nil

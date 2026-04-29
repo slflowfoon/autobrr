@@ -10,6 +10,7 @@ export const FILTER_FIELDS: Record<string, string> = {
   "priority": "number",
   "log_score": "number",
   "max_downloads": "number",
+  "min_download_interval": "number",
   "use_regex": "boolean",
   "scene": "boolean",
   "smart_episode": "boolean",

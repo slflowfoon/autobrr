@@ -43,11 +43,12 @@ type FilterRepo interface {
 }
 
 type FilterDownloads struct {
-	HourCount  int `json:"hour_count"`
-	DayCount   int `json:"day_count"`
-	WeekCount  int `json:"week_count"`
-	MonthCount int `json:"month_count"`
-	TotalCount int `json:"total_count"`
+	HourCount      int   `json:"hour_count"`
+	DayCount       int   `json:"day_count"`
+	WeekCount      int   `json:"week_count"`
+	MonthCount     int   `json:"month_count"`
+	TotalCount     int   `json:"total_count"`
+	LastDownloadAt int64 `json:"last_download_at,omitempty"`
 }
 
 func (f *FilterDownloads) String() string {
@@ -118,6 +119,7 @@ type Filter struct {
 	Priority                  int32                    `json:"priority"`
 	MaxDownloads              int                      `json:"max_downloads,omitempty"`
 	MaxDownloadsUnit          FilterMaxDownloadsUnit   `json:"max_downloads_unit,omitempty"`
+	MinDownloadInterval       int                      `json:"min_download_interval,omitempty"`
 	MatchReleases             string                   `json:"match_releases,omitempty"`
 	ExceptReleases            string                   `json:"except_releases,omitempty"`
 	UseRegex                  bool                     `json:"use_regex,omitempty"`
@@ -272,6 +274,7 @@ type FilterUpdate struct {
 	AnnounceTypes             *[]string               `json:"announce_types,omitempty"`
 	MaxDownloads              *int                    `json:"max_downloads,omitempty"`
 	MaxDownloadsUnit          *FilterMaxDownloadsUnit `json:"max_downloads_unit,omitempty"`
+	MinDownloadInterval       *int                    `json:"min_download_interval,omitempty"`
 	MatchReleases             *string                 `json:"match_releases,omitempty"`
 	ExceptReleases            *string                 `json:"except_releases,omitempty"`
 	UseRegex                  *bool                   `json:"use_regex,omitempty"`
@@ -425,6 +428,10 @@ func (f *Filter) CheckFilter(r *Release) (*RejectionReasons, bool) {
 	// Max downloads check. If reached return early so other filters can be checked as quick as possible.
 	if f.IsMaxDownloadsLimitEnabled() && !f.checkMaxDownloads() {
 		f.RejectReasons.Addf("max downloads", fmt.Sprintf("[max downloads] reached %d per %s", f.MaxDownloads, f.MaxDownloadsUnit), f.Downloads.String(), fmt.Sprintf("reached %d per %s", f.MaxDownloads, f.MaxDownloadsUnit))
+		return f.RejectReasons, false
+	}
+	if f.IsMinDownloadIntervalEnabled() && !f.checkMinDownloadInterval() {
+		f.RejectReasons.Addf("min download interval", fmt.Sprintf("[min download interval] last download was less than %d seconds ago", f.MinDownloadInterval), f.Downloads.String(), fmt.Sprintf("last download was less than %d seconds ago", f.MinDownloadInterval))
 		return f.RejectReasons, false
 	}
 
@@ -720,12 +727,24 @@ func (f *Filter) IsMaxDownloadsLimitEnabled() bool {
 	return f.MaxDownloads > 0 && f.MaxDownloadsUnit != ""
 }
 
+func (f *Filter) IsMinDownloadIntervalEnabled() bool {
+	return f.MinDownloadInterval > 0
+}
+
 func (f *Filter) checkMaxDownloads() bool {
 	if f.Downloads == nil {
 		return false
 	}
 
 	return f.Downloads.BelowCount(f.MaxDownloadsUnit, f.MaxDownloads)
+}
+
+func (f *Filter) checkMinDownloadInterval() bool {
+	if f.Downloads == nil || f.Downloads.LastDownloadAt == 0 {
+		return true
+	}
+
+	return time.Now().Unix()-f.Downloads.LastDownloadAt >= int64(f.MinDownloadInterval)
 }
 
 // isPerfectFLAC Perfect is "CD FLAC Cue Log 100% Lossless or 24bit Lossless"

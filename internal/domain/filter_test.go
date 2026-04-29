@@ -5,6 +5,7 @@ package domain
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -1976,6 +1977,30 @@ func TestFilter_CheckFilter1(t *testing.T) {
 			wantMatch:        true,
 		},
 		{
+			name: "test_36_min_download_interval_reached",
+			fields: fields{
+				MinDownloadInterval: 1800,
+				Downloads: &FilterDownloads{
+					LastDownloadAt: time.Now().Add(-31 * time.Minute).Unix(),
+				},
+			},
+			args:             args{&Release{TorrentName: "Show.Name.S01.DV.2160p.ATVP.WEB-DL.DDPA5.1.x265-GROUP2"}},
+			rejectionReasons: &RejectionReasons{data: []Rejection{}},
+			wantMatch:        true,
+		},
+		{
+			name: "test_36_min_download_interval_not_reached",
+			fields: fields{
+				MinDownloadInterval: 1800,
+				Downloads: &FilterDownloads{
+					LastDownloadAt: time.Now().Add(-10 * time.Minute).Unix(),
+				},
+			},
+			args:             args{&Release{TorrentName: "Show.Name.S01.DV.2160p.ATVP.WEB-DL.DDPA5.1.x265-GROUP2"}},
+			rejectionReasons: &RejectionReasons{data: []Rejection{{key: "min download interval", got: "Hour: 0, Day: 0, Week: 0, Month: 0, Total: 0", want: "last download was less than 1800 seconds ago", format: "[min download interval] last download was less than 1800 seconds ago"}}},
+			wantMatch:        false,
+		},
+		{
 			name: "test_37",
 			fields: fields{
 				ExceptOrigins: []string{"Internal"},
@@ -2071,6 +2096,7 @@ func TestFilter_CheckFilter1(t *testing.T) {
 				Priority:             tt.fields.Priority,
 				MaxDownloads:         tt.fields.MaxDownloads,
 				MaxDownloadsUnit:     tt.fields.MaxDownloadsUnit,
+				MinDownloadInterval:  tt.fields.MinDownloadInterval,
 				MatchReleases:        tt.fields.MatchReleases,
 				ExceptReleases:       tt.fields.ExceptReleases,
 				UseRegex:             tt.fields.UseRegex,
