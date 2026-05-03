@@ -120,6 +120,33 @@ func (repo *ReleaseRepo) StoreReleaseActionStatus(ctx context.Context, status *d
 	return nil
 }
 
+func (repo *ReleaseRepo) GetLastApprovedActionStatusTimestamp(ctx context.Context, filterID, actionID int64) (*time.Time, error) {
+	queryBuilder := repo.db.squirrel.
+		Select("timestamp").
+		From("release_action_status").
+		Where(sq.Eq{"filter_id": filterID}).
+		Where(sq.Eq{"action_id": actionID}).
+		Where(sq.Eq{"status": domain.ReleasePushStatusApproved}).
+		OrderBy("timestamp DESC").
+		Limit(1)
+
+	query, args, err := queryBuilder.ToSql()
+	if err != nil {
+		return nil, errors.Wrap(err, "error building query")
+	}
+
+	var timestamp time.Time
+	if err := repo.db.Handler.QueryRowContext(ctx, query, args...).Scan(&timestamp); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+
+		return nil, errors.Wrap(err, "error executing query")
+	}
+
+	return &timestamp, nil
+}
+
 func (repo *ReleaseRepo) StoreDuplicateProfile(ctx context.Context, profile *domain.DuplicateReleaseProfile) error {
 	if profile.ID == 0 {
 		queryBuilder := repo.db.squirrel.

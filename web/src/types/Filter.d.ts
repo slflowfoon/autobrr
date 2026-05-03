@@ -12,6 +12,8 @@ interface Filter {
   min_size: string;
   max_size: string;
   delay: number;
+  only_download_if_idle: boolean;
+  minimum_download_interval: number;
   priority: number;
   announce_types: string[];
   max_downloads: number;

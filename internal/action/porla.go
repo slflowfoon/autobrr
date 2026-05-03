@@ -30,6 +30,17 @@ func (s *service) porla(ctx context.Context, action *domain.Action, release doma
 
 	prl := client.Client.(*porla.Client)
 
+	if release.Filter != nil && release.Filter.OnlyDownloadIfIdle {
+		rejections, err := s.porlaCheckOnlyDownloadIfIdle(ctx, action, prl)
+		if err != nil {
+			return nil, errors.Wrap(err, "error checking Porla client idle state: %s", action.Name)
+		}
+
+		if len(rejections) > 0 {
+			return rejections, nil
+		}
+	}
+
 	rejections, err := s.porlaCheckRulesCanDownload(ctx, action, client, prl)
 	if err != nil {
 		return nil, errors.Wrap(err, "error checking Porla client rules: %s", action.Name)
@@ -103,6 +114,25 @@ func (s *service) porla(ctx context.Context, action *domain.Action, release doma
 		}
 
 		s.log.Info().Msgf("torrent with hash %s successfully added to client: '%s'", release.TorrentHash, client.Name)
+	}
+
+	return nil, nil
+}
+
+func (s *service) porlaCheckOnlyDownloadIfIdle(ctx context.Context, action *domain.Action, prla *porla.Client) ([]string, error) {
+	s.log.Trace().Msgf("action Porla: %s check only download if idle", action.Name)
+
+	torrents, err := prla.TorrentsList(ctx, &porla.TorrentsListFilters{Query: "is:downloading and not is:paused"})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not fetch active downloads")
+	}
+
+	if len(torrents.Torrents) > 0 {
+		rejection := "active downloads found, skipping"
+
+		s.log.Debug().Msg(rejection)
+
+		return []string{rejection}, nil
 	}
 
 	return nil, nil

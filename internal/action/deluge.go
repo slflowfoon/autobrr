@@ -88,6 +88,25 @@ func (s *service) delugeCheckRulesCanDownload(ctx context.Context, del deluge.De
 	return nil, nil
 }
 
+func (s *service) delugeCheckOnlyDownloadIfIdle(ctx context.Context, del deluge.DelugeClient, action *domain.Action) ([]string, error) {
+	s.log.Trace().Msgf("action Deluge: %v check only download if idle", action.Name)
+
+	activeDownloads, err := del.TorrentsStatus(ctx, deluge.StateDownloading, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not fetch downloading torrents")
+	}
+
+	if len(activeDownloads) > 0 {
+		rejection := "active downloads found, skipping"
+
+		s.log.Debug().Msg(rejection)
+
+		return []string{rejection}, nil
+	}
+
+	return nil, nil
+}
+
 func (s *service) delugeV1(ctx context.Context, client *domain.DownloadClient, action *domain.Action, release domain.Release) ([]string, error) {
 	//downloadClient := client.Client.(*deluge.Client)
 	downloadClient := deluge.NewV1(deluge.Settings{
@@ -106,6 +125,17 @@ func (s *service) delugeV1(ctx context.Context, client *domain.DownloadClient, a
 	}
 
 	defer downloadClient.Close()
+
+	if release.Filter != nil && release.Filter.OnlyDownloadIfIdle {
+		rejections, err := s.delugeCheckOnlyDownloadIfIdle(ctx, downloadClient, action)
+		if err != nil {
+			s.log.Error().Err(err).Msgf("error checking client idle state: %s", action.Name)
+			return nil, err
+		}
+		if rejections != nil {
+			return rejections, nil
+		}
+	}
 
 	// perform connection to Deluge server
 	rejections, err := s.delugeCheckRulesCanDownload(ctx, downloadClient, client, action)
@@ -236,6 +266,17 @@ func (s *service) delugeV2(ctx context.Context, client *domain.DownloadClient, a
 	}
 
 	defer downloadClient.Close()
+
+	if release.Filter != nil && release.Filter.OnlyDownloadIfIdle {
+		rejections, err := s.delugeCheckOnlyDownloadIfIdle(ctx, downloadClient, action)
+		if err != nil {
+			s.log.Error().Err(err).Msgf("error checking client idle state: %s", action.Name)
+			return nil, err
+		}
+		if rejections != nil {
+			return rejections, nil
+		}
+	}
 
 	// perform connection to Deluge server
 	rejections, err := s.delugeCheckRulesCanDownload(ctx, downloadClient, client, action)

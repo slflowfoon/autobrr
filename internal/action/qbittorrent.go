@@ -29,6 +29,17 @@ func (s *service) qbittorrent(ctx context.Context, action *domain.Action, releas
 
 	qbtClient := client.Client.(*qbittorrent.Client)
 
+	if release.Filter != nil && release.Filter.OnlyDownloadIfIdle {
+		rejections, err := s.qbittorrentCheckOnlyDownloadIfIdle(ctx, action, qbtClient)
+		if err != nil {
+			return nil, errors.Wrap(err, "error checking client idle state: %s", action.Name)
+		}
+
+		if len(rejections) > 0 {
+			return rejections, nil
+		}
+	}
+
 	if client.Settings.Rules.Enabled && !action.IgnoreRules {
 		// check for active downloads and other rules
 		rejections, err := s.qbittorrentCheckRulesCanDownload(ctx, action, client.Settings.Rules, qbtClient)
@@ -191,6 +202,25 @@ func (s *service) prepareQbitOptions(action *domain.Action) (map[string]string, 
 	}
 
 	return opts.Prepare(), nil
+}
+
+func (s *service) qbittorrentCheckOnlyDownloadIfIdle(ctx context.Context, action *domain.Action, qbt *qbittorrent.Client) ([]string, error) {
+	s.log.Trace().Msgf("action qBittorrent: %s check only download if idle", action.Name)
+
+	activeDownloads, err := qbt.GetTorrentsActiveDownloadsCtx(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not fetch active downloads")
+	}
+
+	if len(activeDownloads) > 0 {
+		rejection := "active downloads found, skipping"
+
+		s.log.Debug().Msg(rejection)
+
+		return []string{rejection}, nil
+	}
+
+	return nil, nil
 }
 
 // qbittorrentCheckRulesCanDownload

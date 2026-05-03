@@ -490,6 +490,31 @@ func (s *service) processFilters(ctx context.Context, filters []*domain.Filter, 
 				}
 			}
 
+			if release.Filter.MinimumDownloadInterval > 0 && isDownloadClientAction(act.Type) {
+				lastApprovedAt, err := s.repo.GetLastApprovedActionStatusTimestamp(ctx, int64(release.FilterID), int64(act.ID))
+				if err != nil {
+					l.Error().Err(err).Msgf("release.Process: error checking minimum download interval for filter: %s", release.FilterName)
+					return err
+				}
+
+				if lastApprovedAt != nil {
+					nextAllowedAt := lastApprovedAt.Add(time.Duration(release.Filter.MinimumDownloadInterval) * time.Second)
+					if time.Now().Before(nextAllowedAt) {
+						rejection := fmt.Sprintf("minimum download interval not reached, next download allowed at %s", nextAllowedAt.Format(time.RFC3339))
+						actionStatus.Status = domain.ReleasePushStatusRejected
+						actionStatus.Rejections = []string{rejection}
+
+						if err := s.StoreReleaseActionStatus(ctx, actionStatus); err != nil {
+							s.log.Error().Err(err).Msgf("release.Process: error storing action status for filter: %s", release.FilterName)
+						}
+
+						l.Debug().Str("action", act.Name).Str("action_type", string(act.Type)).Msgf("release rejected: %s", rejection)
+						triedActionClients[actionClientTypeKey{Type: act.Type, ClientID: act.ClientID}] = struct{}{}
+						continue
+					}
+				}
+			}
+
 			l.Trace().Msgf("release.Process: indexer: %s, filter: %s release: %s , run action: %s", release.Indexer.Name, release.FilterName, release.TorrentName, act.Name)
 
 			// keep track of action clients to avoid sending the same thing all over again
@@ -600,6 +625,20 @@ func (s *service) ProcessMultipleFromIndexer(releases []*domain.Release, indexer
 	}
 
 	return nil
+}
+
+func isDownloadClientAction(actionType domain.ActionType) bool {
+	switch actionType {
+	case domain.ActionTypeQbittorrent,
+		domain.ActionTypeDelugeV1,
+		domain.ActionTypeDelugeV2,
+		domain.ActionTypeRTorrent,
+		domain.ActionTypeTransmission,
+		domain.ActionTypePorla:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *service) runAction(ctx context.Context, action *domain.Action, release *domain.Release, status *domain.ReleaseActionStatus) (*domain.ReleaseActionStatus, error) {

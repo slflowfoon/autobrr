@@ -48,6 +48,7 @@ type ReleaseRepo interface {
 	UpdateBaseURL(ctx context.Context, indexer string, oldBaseURL, newBaseURL string) error
 
 	GetActionStatus(ctx context.Context, req *GetReleaseActionStatusRequest) (*ReleaseActionStatus, error)
+	GetLastApprovedActionStatusTimestamp(ctx context.Context, filterID, actionID int64) (*time.Time, error)
 	StoreReleaseActionStatus(ctx context.Context, status *ReleaseActionStatus) error
 
 	StoreDuplicateProfile(ctx context.Context, profile *DuplicateReleaseProfile) error
