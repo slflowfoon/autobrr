@@ -237,6 +237,8 @@ func (r *FilterRepo) FindByID(ctx context.Context, filterID int) (*domain.Filter
 			"f.min_size",
 			"f.max_size",
 			"f.delay",
+			"f.only_download_if_idle",
+			"f.minimum_download_interval",
 			"f.priority",
 			"f.announce_types",
 			"f.max_downloads",
@@ -323,8 +325,8 @@ func (r *FilterRepo) FindByID(ctx context.Context, filterID int) (*domain.Filter
 
 	// filter
 	var minSize, maxSize, maxDownloadsUnit, matchReleases, exceptReleases, matchReleaseGroups, exceptReleaseGroups, matchReleaseTags, exceptReleaseTags, matchDescription, exceptDescription, freeleechPercent, shows, seasons, episodes, years, months, days, artists, albums, matchCategories, exceptCategories, matchUploaders, exceptUploaders, matchRecordLabels, exceptRecordLabels, tags, exceptTags, tagsMatchLogic, exceptTagsMatchLogic sql.NullString
-	var useRegex, scene, freeleech, hasLog, hasCue, perfectFlac sql.NullBool
-	var delay, maxDownloads, logScore sql.NullInt32
+	var useRegex, scene, freeleech, hasLog, hasCue, perfectFlac, onlyDownloadIfIdle sql.NullBool
+	var delay, minimumDownloadInterval, maxDownloads, logScore sql.NullInt32
 	var releaseProfileDuplicateId sql.NullInt64
 
 	err = row.Scan(
@@ -334,6 +336,8 @@ func (r *FilterRepo) FindByID(ctx context.Context, filterID int) (*domain.Filter
 		&minSize,
 		&maxSize,
 		&delay,
+		&onlyDownloadIfIdle,
+		&minimumDownloadInterval,
 		&f.Priority,
 		pq.Array(&f.AnnounceTypes),
 		&maxDownloads,
@@ -410,6 +414,8 @@ func (r *FilterRepo) FindByID(ctx context.Context, filterID int) (*domain.Filter
 	f.MinSize = minSize.String
 	f.MaxSize = maxSize.String
 	f.Delay = int(delay.Int32)
+	f.OnlyDownloadIfIdle = onlyDownloadIfIdle.Bool
+	f.MinimumDownloadInterval = int(minimumDownloadInterval.Int32)
 	f.MaxDownloads = int(maxDownloads.Int32)
 	f.MaxDownloadsUnit = domain.FilterMaxDownloadsUnit(maxDownloadsUnit.String)
 	f.MatchReleases = matchReleases.String
@@ -465,6 +471,8 @@ func (r *FilterRepo) findByIndexerIdentifier(ctx context.Context, indexer string
 			"f.min_size",
 			"f.max_size",
 			"f.delay",
+			"f.only_download_if_idle",
+			"f.minimum_download_interval",
 			"f.priority",
 			"f.announce_types",
 			"f.max_downloads",
@@ -580,8 +588,8 @@ func (r *FilterRepo) findByIndexerIdentifier(ctx context.Context, indexer string
 		var f domain.Filter
 
 		var minSize, maxSize, maxDownloadsUnit, matchReleases, exceptReleases, matchReleaseGroups, exceptReleaseGroups, matchReleaseTags, exceptReleaseTags, matchDescription, exceptDescription, freeleechPercent, shows, seasons, episodes, years, months, days, artists, albums, matchCategories, exceptCategories, matchUploaders, exceptUploaders, matchRecordLabels, exceptRecordLabels, tags, exceptTags, tagsMatchLogic, exceptTagsMatchLogic sql.NullString
-		var useRegex, scene, freeleech, hasLog, hasCue, perfectFlac sql.NullBool
-		var delay, maxDownloads, logScore sql.NullInt32
+		var useRegex, scene, freeleech, hasLog, hasCue, perfectFlac, onlyDownloadIfIdle sql.NullBool
+		var delay, minimumDownloadInterval, maxDownloads, logScore sql.NullInt32
 		var releaseProfileDuplicateID, rdpId sql.NullInt64
 
 		var rdpName sql.NullString
@@ -594,6 +602,8 @@ func (r *FilterRepo) findByIndexerIdentifier(ctx context.Context, indexer string
 			&minSize,
 			&maxSize,
 			&delay,
+			&onlyDownloadIfIdle,
+			&minimumDownloadInterval,
 			&f.Priority,
 			pq.Array(&f.AnnounceTypes),
 			&maxDownloads,
@@ -689,6 +699,8 @@ func (r *FilterRepo) findByIndexerIdentifier(ctx context.Context, indexer string
 		f.MinSize = minSize.String
 		f.MaxSize = maxSize.String
 		f.Delay = int(delay.Int32)
+		f.OnlyDownloadIfIdle = onlyDownloadIfIdle.Bool
+		f.MinimumDownloadInterval = int(minimumDownloadInterval.Int32)
 		f.MaxDownloads = int(maxDownloads.Int32)
 		f.MaxDownloadsUnit = domain.FilterMaxDownloadsUnit(maxDownloadsUnit.String)
 		f.MatchReleases = matchReleases.String
@@ -863,6 +875,8 @@ func (r *FilterRepo) Store(ctx context.Context, filter *domain.Filter) error {
 			"min_size",
 			"max_size",
 			"delay",
+			"only_download_if_idle",
+			"minimum_download_interval",
 			"priority",
 			"announce_types",
 			"max_downloads",
@@ -932,6 +946,8 @@ func (r *FilterRepo) Store(ctx context.Context, filter *domain.Filter) error {
 			filter.MinSize,
 			filter.MaxSize,
 			filter.Delay,
+			filter.OnlyDownloadIfIdle,
+			filter.MinimumDownloadInterval,
 			filter.Priority,
 			pq.Array(filter.AnnounceTypes),
 			filter.MaxDownloads,
@@ -1019,6 +1035,8 @@ func (r *FilterRepo) Update(ctx context.Context, filter *domain.Filter) error {
 		Set("min_size", filter.MinSize).
 		Set("max_size", filter.MaxSize).
 		Set("delay", filter.Delay).
+		Set("only_download_if_idle", filter.OnlyDownloadIfIdle).
+		Set("minimum_download_interval", filter.MinimumDownloadInterval).
 		Set("priority", filter.Priority).
 		Set("announce_types", pq.Array(filter.AnnounceTypes)).
 		Set("max_downloads", filter.MaxDownloads).
@@ -1122,6 +1140,12 @@ func (r *FilterRepo) UpdatePartial(ctx context.Context, filter domain.FilterUpda
 	}
 	if filter.Delay != nil {
 		q = q.Set("delay", filter.Delay)
+	}
+	if filter.OnlyDownloadIfIdle != nil {
+		q = q.Set("only_download_if_idle", filter.OnlyDownloadIfIdle)
+	}
+	if filter.MinimumDownloadInterval != nil {
+		q = q.Set("minimum_download_interval", filter.MinimumDownloadInterval)
 	}
 	if filter.Priority != nil {
 		q = q.Set("priority", filter.Priority)

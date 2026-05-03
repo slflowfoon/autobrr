@@ -67,6 +67,8 @@ export function FilterAddForm({ isOpen, toggle }: AddFormProps) {
                   initialValues={{
                     name: "",
                     enabled: false,
+                    only_download_if_idle: false,
+                    minimum_download_interval: 0,
                     resolutions: [],
                     codecs: [],
                     sources: [],

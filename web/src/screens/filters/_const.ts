@@ -7,6 +7,8 @@ export const FILTER_FIELDS: Record<string, string> = {
   "id": "number",
   "enabled": "boolean",
   "delay": "number",
+  "only_download_if_idle": "boolean",
+  "minimum_download_interval": "number",
   "priority": "number",
   "log_score": "number",
   "max_downloads": "number",

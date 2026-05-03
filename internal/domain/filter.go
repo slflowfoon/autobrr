@@ -115,6 +115,8 @@ type Filter struct {
 	MinSize                   string                   `json:"min_size,omitempty"`
 	MaxSize                   string                   `json:"max_size,omitempty"`
 	Delay                     int                      `json:"delay,omitempty"`
+	OnlyDownloadIfIdle        bool                     `json:"only_download_if_idle,omitempty"`
+	MinimumDownloadInterval   int                      `json:"minimum_download_interval,omitempty"`
 	Priority                  int32                    `json:"priority"`
 	MaxDownloads              int                      `json:"max_downloads,omitempty"`
 	MaxDownloadsUnit          FilterMaxDownloadsUnit   `json:"max_downloads_unit,omitempty"`
@@ -268,6 +270,8 @@ type FilterUpdate struct {
 	MinSize                   *string                 `json:"min_size,omitempty"`
 	MaxSize                   *string                 `json:"max_size,omitempty"`
 	Delay                     *int                    `json:"delay,omitempty"`
+	OnlyDownloadIfIdle        *bool                   `json:"only_download_if_idle,omitempty"`
+	MinimumDownloadInterval   *int                    `json:"minimum_download_interval,omitempty"`
 	Priority                  *int32                  `json:"priority,omitempty"`
 	AnnounceTypes             *[]string               `json:"announce_types,omitempty"`
 	MaxDownloads              *int                    `json:"max_downloads,omitempty"`

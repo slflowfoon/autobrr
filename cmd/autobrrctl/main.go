@@ -440,14 +440,16 @@ func CreateHtpasswdHash(password string) (string, error) {
 // FilterExport contains all the fields of domain.Filter useful for export
 type FilterExport struct {
 	// Basic fields
-	Name             string `json:"name,omitempty"`
-	Enabled          bool   `json:"enabled,omitempty"`
-	MinSize          string `json:"min_size,omitempty"`
-	MaxSize          string `json:"max_size,omitempty"`
-	Delay            int    `json:"delay,omitempty"`
-	Priority         int32  `json:"priority,omitempty"`
-	MaxDownloads     int    `json:"max_downloads,omitempty"`
-	MaxDownloadsUnit string `json:"max_downloads_unit,omitempty"`
+	Name                    string `json:"name,omitempty"`
+	Enabled                 bool   `json:"enabled,omitempty"`
+	MinSize                 string `json:"min_size,omitempty"`
+	MaxSize                 string `json:"max_size,omitempty"`
+	Delay                   int    `json:"delay,omitempty"`
+	OnlyDownloadIfIdle      bool   `json:"only_download_if_idle,omitempty"`
+	MinimumDownloadInterval int    `json:"minimum_download_interval,omitempty"`
+	Priority                int32  `json:"priority,omitempty"`
+	MaxDownloads            int    `json:"max_downloads,omitempty"`
+	MaxDownloadsUnit        string `json:"max_downloads_unit,omitempty"`
 
 	// Release matching fields
 	MatchReleases       string   `json:"match_releases,omitempty"`
@@ -541,23 +543,25 @@ func prepareFilterForExport(filter domain.Filter, externalFilters []domain.Filte
 	filterExport := FilterExport{
 		// Copy all relevant fields from filter to filterExport
 		//Name:                 filter.Name,
-		Enabled:              filter.Enabled,
-		MinSize:              filter.MinSize,
-		MaxSize:              filter.MaxSize,
-		Delay:                filter.Delay,
-		Priority:             filter.Priority,
-		MaxDownloads:         filter.MaxDownloads,
-		MaxDownloadsUnit:     string(filter.MaxDownloadsUnit),
-		MatchReleases:        filter.MatchReleases,
-		ExceptReleases:       filter.ExceptReleases,
-		UseRegex:             filter.UseRegex,
-		MatchReleaseGroups:   filter.MatchReleaseGroups,
-		ExceptReleaseGroups:  filter.ExceptReleaseGroups,
-		MatchReleaseTags:     filter.MatchReleaseTags,
-		ExceptReleaseTags:    filter.ExceptReleaseTags,
-		UseRegexReleaseTags:  filter.UseRegexReleaseTags,
-		MatchDescription:     filter.MatchDescription,
-		ExceptDescription:    filter.ExceptDescription,
+		Enabled:                 filter.Enabled,
+		MinSize:                 filter.MinSize,
+		MaxSize:                 filter.MaxSize,
+		Delay:                   filter.Delay,
+		OnlyDownloadIfIdle:      filter.OnlyDownloadIfIdle,
+		MinimumDownloadInterval: filter.MinimumDownloadInterval,
+		Priority:                filter.Priority,
+		MaxDownloads:            filter.MaxDownloads,
+		MaxDownloadsUnit:        string(filter.MaxDownloadsUnit),
+		MatchReleases:           filter.MatchReleases,
+		ExceptReleases:          filter.ExceptReleases,
+		UseRegex:                filter.UseRegex,
+		MatchReleaseGroups:      filter.MatchReleaseGroups,
+		ExceptReleaseGroups:     filter.ExceptReleaseGroups,
+		MatchReleaseTags:        filter.MatchReleaseTags,
+		ExceptReleaseTags:       filter.ExceptReleaseTags,
+		UseRegexReleaseTags:     filter.UseRegexReleaseTags,
+		MatchDescription:        filter.MatchDescription,
+		ExceptDescription:       filter.ExceptDescription,
 		UseRegexDescription:  filter.UseRegexDescription,
 		Scene:                filter.Scene,
 		Origins:              filter.Origins,

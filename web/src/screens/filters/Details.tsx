@@ -305,6 +305,8 @@ const indexerSchema = z.object({
 // Define the schema for the entire object
 const schema = z.object({
   name: z.string(),
+  only_download_if_idle: z.boolean().optional(),
+  minimum_download_interval: z.number().optional(),
   max_downloads: z.number().optional(),
   max_downloads_unit: z.string().optional(),
   indexers: z.array(indexerSchema).min(1, { message: "Must select at least one indexer" }),
@@ -415,6 +417,8 @@ export const FilterDetails = () => {
               max_size: filter.max_size,
               announce_types: filter.announce_types || [],
               delay: filter.delay,
+              only_download_if_idle: filter.only_download_if_idle || false,
+              minimum_download_interval: filter.minimum_download_interval,
               priority: filter.priority,
               max_downloads: filter.max_downloads,
               max_downloads_unit: filter.max_downloads_unit,

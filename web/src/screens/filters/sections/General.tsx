@@ -104,6 +104,28 @@ export const General = () => {
               </div>
             }
           />
+          <SwitchGroup
+            name="only_download_if_idle"
+            label={t("filters:general.onlyDownloadIfIdle")}
+            className="py-2 col-span-12 sm:col-span-6"
+            tooltip={
+              <div>
+                <p>{t("filters:general.onlyDownloadIfIdleTooltip")}</p>
+                <DocsLink href="https://autobrr.com/filters#rules" />
+              </div>
+            }
+          />
+          <NumberField
+            name="minimum_download_interval"
+            label={t("filters:general.minimumDownloadInterval")}
+            placeholder={t("filters:general.minimumDownloadIntervalPlaceholder")}
+            tooltip={
+              <div>
+                <p>{t("filters:general.minimumDownloadIntervalTooltip")}</p>
+                <DocsLink href="https://autobrr.com/filters#rules" />
+              </div>
+            }
+          />
           <NumberField
             name="priority"
             label={t("filters:general.priority")}

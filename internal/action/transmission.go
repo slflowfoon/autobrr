@@ -37,6 +37,17 @@ func (s *service) transmission(ctx context.Context, action *domain.Action, relea
 
 	tbt := client.Client.(*transmissionrpc.Client)
 
+	if release.Filter != nil && release.Filter.OnlyDownloadIfIdle {
+		rejections, err := s.transmissionCheckOnlyDownloadIfIdle(ctx, action, tbt)
+		if err != nil {
+			return nil, errors.Wrap(err, "error checking client idle state: %s", action.Name)
+		}
+
+		if len(rejections) > 0 {
+			return rejections, nil
+		}
+	}
+
 	rejections, err := s.transmissionCheckRulesCanDownload(ctx, action, client, tbt)
 	if err != nil {
 		return nil, errors.Wrap(err, "error checking client rules: %s", action.Name)
@@ -250,6 +261,27 @@ func (s *service) transmissionReannounce(ctx context.Context, action *domain.Act
 	}
 
 	return nil
+}
+
+func (s *service) transmissionCheckOnlyDownloadIfIdle(ctx context.Context, action *domain.Action, tbt *transmissionrpc.Client) ([]string, error) {
+	s.log.Trace().Msgf("action transmission: %s check only download if idle", action.Name)
+
+	torrents, err := tbt.TorrentGet(ctx, []string{"status"}, []int64{})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not fetch active downloads")
+	}
+
+	for _, torrent := range torrents {
+		if torrent.Status != nil && *torrent.Status == transmissionrpc.TorrentStatusDownload {
+			rejection := "active downloads found, skipping"
+
+			s.log.Debug().Msg(rejection)
+
+			return []string{rejection}, nil
+		}
+	}
+
+	return nil, nil
 }
 
 func (s *service) transmissionCheckRulesCanDownload(ctx context.Context, action *domain.Action, client *domain.DownloadClient, tbt *transmissionrpc.Client) ([]string, error) {

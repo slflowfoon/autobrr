@@ -156,6 +156,8 @@ CREATE TABLE filter
     min_size                     TEXT,
     max_size                     TEXT,
     delay                        INTEGER,
+    only_download_if_idle        BOOLEAN   DEFAULT FALSE,
+    minimum_download_interval    INTEGER   DEFAULT 0,
     priority                     INTEGER   DEFAULT 0    NOT NULL,
     max_downloads                INTEGER   DEFAULT 0,
     max_downloads_unit           TEXT,
